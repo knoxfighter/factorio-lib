@@ -1,30 +1,9 @@
-use std::io;
-use std::io::Read;
-use crate::FactorioVersion;
-use crate::saves::Version64;
+use std::{io, io::Read};
+use crate::versions::RuntimeVersion;
 
-pub trait FactorioNumber : Sized {
+pub trait FactorioNumber: Sized + From<u8> {
     fn read_num(reader: &mut impl Read) -> io::Result<Self>;
 }
-
-pub fn read_optimized_num<T: FactorioNumber + From<u8>>(reader: &mut impl Read, _save_version: FactorioVersion) -> io::Result<T> {
-    // since factorio 0.14.14 this is an "optimized" number, which only reads the first byte, if it is smaller than 255
-    // if save_version >= [0, 14, 14, 0].into() {
-    match _save_version {
-        #[cfg(feature = "legacy")]
-        FactorioVersion::Legacy => {}
-        FactorioVersion::V01414 => {
-            let first = <u8 as FactorioNumber>::read_num(reader)?;
-            if first != u8::MAX {
-                return Ok(first.into());
-            }
-        }
-    }
-
-    // otherwise this reads the whole value
-    <T as FactorioNumber>::read_num(reader)
-}
-
 
 macro_rules! read_num_impl {
     ($int:ty) => {
@@ -42,12 +21,13 @@ macro_rules! read_num_impl {
 
 read_num_impl!(u8, u16, u32, u64);
 
-pub fn read_string(reader: &mut impl Read, save_version: Version64, force_optimized: bool) -> io::Result<String> {
-    if save_version >= [0, 16, 0, 0].into() {
-        let size = read_optimized_num::<u32>(reader, save_version)?;
-    } else {
-        let size = 
-    }
-    
-    Ok("t".into())
+pub trait FactorioReader: Sized {
+    fn read(runtime_version: &RuntimeVersion, reader: &mut impl Read) -> io::Result<Self>;
+}
+
+pub fn read_string(reader: &mut impl Read, length: usize) -> io::Result<String> {
+    let mut buf = vec![0; length];
+    reader.read_exact(&mut buf)?;
+
+    String::from_utf8(buf).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
 }
