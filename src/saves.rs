@@ -1,19 +1,18 @@
-use std::fs::File;
-use std::io;
-use std::io::Read;
-use std::path::Path;
+use std::{fs::File, io, io::Read, path::Path};
 
 use flate2::read::ZlibDecoder;
 
-use crate::reader::{FactorioNumber, FactorioReader};
-use crate::versions::RuntimeVersion;
+use crate::{
+    reader::{FactorioNumber, FactorioReader},
+    versions::RuntimeVersion,
+};
 
 #[repr(u8)]
 #[derive(PartialEq, Debug)]
 pub enum Difficulty {
-    Easy = 0x0,
-    Normal = 0x1,
-    Hard = 0x2,
+    Easy    = 0x0,
+    Normal  = 0x1,
+    Hard    = 0x2,
     Nothing = 0x3,
 }
 
@@ -70,12 +69,12 @@ pub struct SaveHeader {
     pub loaded_from: [u16; 3], // called "application-version" in factorio
     pub loaded_from_build: u16,
     pub allowed_commands: AllowedCommands,
-    pub mods: Vec<Mod>, // called "active-mods" in factorio
+    pub mods: Vec<Mod>, /* called "active-mods" in factorio */
 
-                        // the following is untracked and just a first glance in 1.1 factorio
-                        // pub ModSettingsChecksum: u32,
-                        // pub ModSettings: SomeMap,
-                        // pub MapData: ??,
+                        /* the following is untracked and just a first glance in 1.1 factorio
+                         * pub ModSettingsChecksum: u32,
+                         * pub ModSettings: SomeMap,
+                         * pub MapData: ??, */
 }
 
 #[derive(PartialEq, Debug)]
@@ -169,7 +168,7 @@ pub fn get_save_header_by_path(save_file_path: &Path) -> io::Result<SaveHeader> 
         .enumerate()
         .find_map(move |(i, filename)| {
             if filename.ends_with("level.dat") {
-                return Some((i, false))
+                return Some((i, false));
             } else if filename.ends_with("level.dat0") {
                 return Some((i, true));
             }

@@ -1,8 +1,10 @@
 use std::{io, io::Read};
 
 use super::{FactorioVersion, RuntimeVersion};
-use crate::reader::{self, FactorioNumber, FactorioReader};
-use crate::saves::Mod;
+use crate::{
+    reader::{self, FactorioNumber, FactorioReader},
+    saves::Mod,
+};
 
 pub type Latest = V013;
 
@@ -21,10 +23,13 @@ impl FactorioVersion for V013 {
         reader::read_string(reader, length as _)
     }
 
-    fn read_map<T: FactorioReader>(runtime_version: &RuntimeVersion, reader: &mut impl Read) -> std::io::Result<Vec<T>> {
+    fn read_map<T: FactorioReader>(
+        runtime_version: &RuntimeVersion,
+        reader: &mut impl Read,
+    ) -> std::io::Result<Vec<T>> {
         let amount = u32::read_num(reader)?;
 
-        let mut res = vec![];
+        let mut res = Vec::with_capacity(amount as _);
         for _ in 0..amount {
             let val = T::read(runtime_version, reader)?;
             res.push(val);
@@ -43,8 +48,12 @@ impl FactorioVersion for V013 {
 
     fn read_mod(runtime_version: &RuntimeVersion, reader: &mut impl Read) -> io::Result<Mod> {
         Ok(Mod {
-            name: runtime_version.read_mod_name(reader) ?,
-            version: [runtime_version.read_optimized_number::<u16>(reader)?, runtime_version.read_optimized_number::<u16>(reader)?, runtime_version.read_optimized_number::<u16>(reader)?],
+            name: runtime_version.read_mod_name(reader)?,
+            version: [
+                runtime_version.read_optimized_number::<u16>(reader)?,
+                runtime_version.read_optimized_number::<u16>(reader)?,
+                runtime_version.read_optimized_number::<u16>(reader)?,
+            ],
             crc: None,
         })
     }

@@ -1,4 +1,5 @@
 use std::{io, io::Read};
+
 use crate::versions::RuntimeVersion;
 
 pub trait FactorioNumber: Sized + From<u8> {

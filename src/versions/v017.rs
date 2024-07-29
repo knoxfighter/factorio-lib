@@ -1,6 +1,7 @@
 use std::io::Read;
-use crate::reader::FactorioNumber;
+
 use super::{v016 as previous, FactorioVersion};
+use crate::reader::FactorioNumber;
 
 pub type Latest = V017;
 

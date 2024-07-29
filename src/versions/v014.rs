@@ -1,5 +1,4 @@
-use std::io;
-use std::io::Read;
+use std::{io, io::Read};
 
 use super::{v013 as previous, FactorioVersion, RuntimeVersion};
 use crate::reader::FactorioNumber;

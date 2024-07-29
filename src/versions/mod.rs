@@ -1,7 +1,9 @@
 use std::io::{self, Read};
 
-use crate::reader::{FactorioNumber, FactorioReader};
-use crate::saves::Mod;
+use crate::{
+    reader::{FactorioNumber, FactorioReader},
+    saves::Mod,
+};
 
 pub mod v013;
 pub mod v014;
@@ -19,8 +21,11 @@ trait FactorioVersion {
     fn read_string(reader: &mut impl Read) -> io::Result<String> {
         Self::PreviousVersion::read_string(reader)
     }
-    
-    fn read_map<T: FactorioReader>(runtime_version: &RuntimeVersion, reader: &mut impl Read) -> io::Result<Vec<T>> {
+
+    fn read_map<T: FactorioReader>(
+        runtime_version: &RuntimeVersion,
+        reader: &mut impl Read,
+    ) -> io::Result<Vec<T>> {
         Self::PreviousVersion::read_map(runtime_version, reader)
     }
 
@@ -31,11 +36,11 @@ trait FactorioVersion {
     fn read_allow_non_admin_debug_options(reader: &mut impl Read) -> io::Result<Option<bool>> {
         Self::PreviousVersion::read_allow_non_admin_debug_options(reader)
     }
-    
+
     fn read_mod(runtime_version: &RuntimeVersion, reader: &mut impl Read) -> io::Result<Mod> {
         Self::PreviousVersion::read_mod(runtime_version, reader)
     }
-    
+
     fn read_mod_name(reader: &mut impl Read) -> io::Result<String> {
         Self::PreviousVersion::read_mod_name(reader)
     }
@@ -66,8 +71,8 @@ macro_rules! dispatch {
 impl RuntimeVersion {
     pub fn parse_version(version: &[u16; 3]) -> Self {
         match version {
-            [1, 1, _] => RuntimeVersion::V017, 
-            [1, 0, _] => RuntimeVersion::V017, 
+            [1, 1, _] => RuntimeVersion::V017,
+            [1, 0, _] => RuntimeVersion::V017,
             [0, 18, _] => RuntimeVersion::V017,
             [0, 17, _] => RuntimeVersion::V017,
             [0, 16, _] => RuntimeVersion::V016,
@@ -79,30 +84,36 @@ impl RuntimeVersion {
         }
     }
 
-    pub fn read_optimized_number<T: FactorioNumber>(&self, reader: &mut impl Read) -> io::Result<T> {
+    pub fn read_optimized_number<T: FactorioNumber>(
+        &self,
+        reader: &mut impl Read,
+    ) -> io::Result<T> {
         dispatch!(self, read_optimized_number, reader)
     }
 
     pub fn read_string(&self, reader: &mut impl Read) -> io::Result<String> {
         dispatch!(self, read_string, reader)
     }
-    
+
     pub fn read_array<T: FactorioReader>(&self, reader: &mut impl Read) -> io::Result<Vec<T>> {
-        dispatch!(self, read_map, &self, reader)
+        dispatch!(self, read_map, self, reader)
     }
 
     pub fn read_quality_version(&self, reader: &mut impl Read) -> io::Result<Option<u8>> {
         dispatch!(self, read_quality_version, reader)
     }
 
-    pub fn read_allow_non_admin_debug_options(&self, reader: &mut impl Read) -> io::Result<Option<bool>> {
+    pub fn read_allow_non_admin_debug_options(
+        &self,
+        reader: &mut impl Read,
+    ) -> io::Result<Option<bool>> {
         dispatch!(self, read_allow_non_admin_debug_options, reader)
     }
-    
+
     pub fn read_mod(&self, reader: &mut impl Read) -> io::Result<Mod> {
         dispatch!(self, read_mod, self, reader)
     }
-    
+
     pub fn read_mod_name(&self, reader: &mut impl Read) -> io::Result<String> {
         dispatch!(self, read_mod_name, reader)
     }
