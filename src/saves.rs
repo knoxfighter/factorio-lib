@@ -1,11 +1,13 @@
 use std::{fs::File, io, io::Read, path::Path};
-
+use std::num::NonZeroU32;
 use flate2::read::ZlibDecoder;
 
 use crate::{
     reader::{FactorioNumber, FactorioReader},
     versions::RuntimeVersion,
 };
+use crate::reader::{read_array, read_optimized_num, read_string};
+use crate::versions::FactorioVersion;
 
 #[repr(u8)]
 #[derive(PartialEq, Debug)]
@@ -85,8 +87,16 @@ pub struct Mod {
 }
 
 impl FactorioReader for Mod {
-    fn read(runtime_version: &RuntimeVersion, reader: &mut impl Read) -> io::Result<Self> {
-        runtime_version.read_mod(reader)
+    fn read<T: FactorioVersion>(reader: &mut impl Read) -> io::Result<Self> {
+        Ok(Mod {
+            name: T::read_mod_name(reader)?,
+            version: [
+                read_optimized_num::<u16>(reader)?,
+                read_optimized_num::<u16>(reader)?,
+                read_optimized_num::<u16>(reader)?,
+            ],
+            crc: T::read_mod_crc(reader)?,
+        })
     }
 }
 
@@ -134,26 +144,26 @@ pub fn get_save_header(reader: &mut impl Read) -> io::Result<SaveHeader> {
     let res = SaveHeader {
         factorio_version: save_version,
         quality_version: runtime_version.read_quality_version(reader)?,
-        campaign_name: runtime_version.read_string(reader)?,
-        level_name: runtime_version.read_string(reader)?,
-        base_mod_name: runtime_version.read_string(reader)?,
+        campaign_name: read_string(reader)?,
+        level_name: read_string(reader)?,
+        base_mod_name: read_string(reader)?,
         difficulty: u8::read_num(reader)?.into(),
         finished: u8::read_num(reader)? != 0,
         player_won: u8::read_num(reader)? != 0,
-        next_level: runtime_version.read_string(reader)?,
+        next_level: read_string(reader)?,
         can_continue: u8::read_num(reader)? != 0,
         finished_but_continuing: u8::read_num(reader)? != 0,
         saving_replay: u8::read_num(reader)? != 0,
         allow_non_admin_debug_options: runtime_version
             .read_allow_non_admin_debug_options(reader)?,
         loaded_from: [
-            runtime_version.read_optimized_number::<u16>(reader)?,
-            runtime_version.read_optimized_number::<u16>(reader)?,
-            runtime_version.read_optimized_number::<u16>(reader)?,
+            read_optimized_num(reader)?,
+            read_optimized_num(reader)?,
+            read_optimized_num(reader)?,
         ],
         loaded_from_build: u16::read_num(reader)?,
         allowed_commands: u8::read_num(reader)?.into(),
-        mods: runtime_version.read_array::<Mod>(reader)?,
+        mods: read_array::<Mod>(reader)?,
     };
 
     Ok(res)

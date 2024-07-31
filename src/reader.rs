@@ -1,6 +1,6 @@
 use std::{io, io::Read};
 
-use crate::versions::RuntimeVersion;
+use crate::versions::{FactorioVersion};
 
 pub trait FactorioNumber: Sized + From<u8> {
     fn read_num(reader: &mut impl Read) -> io::Result<Self>;
@@ -23,12 +23,42 @@ macro_rules! read_num_impl {
 read_num_impl!(u8, u16, u32, u64);
 
 pub trait FactorioReader: Sized {
-    fn read(runtime_version: &RuntimeVersion, reader: &mut impl Read) -> io::Result<Self>;
+    fn read<T: FactorioVersion>(reader: &mut impl Read) -> io::Result<Self>;
 }
 
-pub fn read_string(reader: &mut impl Read, length: usize) -> io::Result<String> {
-    let mut buf = vec![0; length];
+pub fn read_array<FV: FactorioVersion, T: FactorioReader>(
+    reader: &mut impl Read,
+) -> io::Result<Vec<T>> {
+    let amount = FV::read_array_length(reader)?;
+
+    let mut res = Vec::with_capacity(amount as _);
+    for _ in 0..amount {
+        let val = T::read::<FV>(reader)?;
+        res.push(val);
+    }
+
+    Ok(res)
+}
+
+pub fn read_string<T: FactorioVersion>(reader: &mut impl Read) -> io::Result<String> {
+    let length = T::read_array_length(reader)?;
+    
+    let mut buf = vec![0; length as _];
     reader.read_exact(&mut buf)?;
 
     String::from_utf8(buf).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
+}
+
+pub fn read_optimized_num<T: FactorioNumber>(reader: &mut impl Read) -> io::Result<T> {
+    let false = std::mem::size_of::<T>() == std::mem::size_of::<u8>() else {
+        panic!("function called on invalid type");
+    };
+    
+    let first = <u8 as FactorioNumber>::read_num(reader)?;
+    if first != u8::MAX {
+        return Ok(first.into());
+    }
+
+    // otherwise this reads the whole value
+    T::read_num(reader)
 }

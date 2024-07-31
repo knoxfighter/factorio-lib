@@ -1,7 +1,9 @@
+use std::io;
 use std::io::Read;
 
-use super::{v014 as previous, FactorioVersion, RuntimeVersion};
-use crate::{reader::FactorioNumber, saves::Mod};
+use crate::reader::FactorioNumber;
+
+use super::{FactorioVersion, v014 as previous};
 
 pub type Latest = V015;
 
@@ -9,10 +11,8 @@ pub struct V015;
 
 impl FactorioVersion for V015 {
     type PreviousVersion = previous::Latest;
-
-    fn read_mod(runtime_version: &RuntimeVersion, reader: &mut impl Read) -> std::io::Result<Mod> {
-        let mut m = Self::PreviousVersion::read_mod(runtime_version, reader)?;
-        m.crc = Some(u32::read_num(reader)?);
-        Ok(m)
+    
+    fn read_mod_crc(reader: &mut impl Read) -> io::Result<Option<u32>> {
+        Ok(Some(u32::read_num(reader)?))
     }
 }

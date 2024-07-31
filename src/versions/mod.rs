@@ -11,22 +11,11 @@ pub mod v015;
 pub mod v016;
 pub mod v017;
 
-trait FactorioVersion {
+pub trait FactorioVersion {
     type PreviousVersion: FactorioVersion;
-
-    fn read_optimized_number<T: FactorioNumber>(reader: &mut impl Read) -> io::Result<T> {
-        Self::PreviousVersion::read_optimized_number(reader)
-    }
-
-    fn read_string(reader: &mut impl Read) -> io::Result<String> {
-        Self::PreviousVersion::read_string(reader)
-    }
-
-    fn read_map<T: FactorioReader>(
-        runtime_version: &RuntimeVersion,
-        reader: &mut impl Read,
-    ) -> io::Result<Vec<T>> {
-        Self::PreviousVersion::read_map(runtime_version, reader)
+    
+    fn read_array_length(reader: &mut impl Read) -> io::Result<u32> {
+        Self::PreviousVersion::read_array_length(reader)
     }
 
     fn read_quality_version(reader: &mut impl Read) -> io::Result<Option<u8>> {
@@ -37,12 +26,11 @@ trait FactorioVersion {
         Self::PreviousVersion::read_allow_non_admin_debug_options(reader)
     }
 
-    fn read_mod(runtime_version: &RuntimeVersion, reader: &mut impl Read) -> io::Result<Mod> {
-        Self::PreviousVersion::read_mod(runtime_version, reader)
-    }
-
     fn read_mod_name(reader: &mut impl Read) -> io::Result<String> {
         Self::PreviousVersion::read_mod_name(reader)
+    }
+    fn read_mod_crc(reader: &mut impl Read) -> io::Result<Option<u32>> {
+        Self::PreviousVersion::read_mod_crc(reader)
     }
 }
 
@@ -84,21 +72,6 @@ impl RuntimeVersion {
         }
     }
 
-    pub fn read_optimized_number<T: FactorioNumber>(
-        &self,
-        reader: &mut impl Read,
-    ) -> io::Result<T> {
-        dispatch!(self, read_optimized_number, reader)
-    }
-
-    pub fn read_string(&self, reader: &mut impl Read) -> io::Result<String> {
-        dispatch!(self, read_string, reader)
-    }
-
-    pub fn read_array<T: FactorioReader>(&self, reader: &mut impl Read) -> io::Result<Vec<T>> {
-        dispatch!(self, read_map, self, reader)
-    }
-
     pub fn read_quality_version(&self, reader: &mut impl Read) -> io::Result<Option<u8>> {
         dispatch!(self, read_quality_version, reader)
     }
@@ -110,8 +83,8 @@ impl RuntimeVersion {
         dispatch!(self, read_allow_non_admin_debug_options, reader)
     }
 
-    pub fn read_mod(&self, reader: &mut impl Read) -> io::Result<Mod> {
-        dispatch!(self, read_mod, self, reader)
+    pub fn read_mod_crc(&self, reader: &mut impl Read) -> io::Result<Option<u32>> {
+        dispatch!(self, read_mod_crc, reader)
     }
 
     pub fn read_mod_name(&self, reader: &mut impl Read) -> io::Result<String> {
