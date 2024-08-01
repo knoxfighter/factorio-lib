@@ -12,7 +12,7 @@ pub struct V015;
 impl FactorioVersion for V015 {
     type PreviousVersion = previous::Latest;
     
-    fn read_mod_crc(reader: &mut impl Read) -> io::Result<Option<u32>> {
+    fn read_mod_crc(version: impl FactorioVersion, reader: &mut impl Read) -> io::Result<Option<u32>> {
         Ok(Some(u32::read_num(reader)?))
     }
 }

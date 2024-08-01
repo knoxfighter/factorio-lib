@@ -17,7 +17,7 @@ pub struct V01414;
 impl FactorioVersion for V01414 {
     type PreviousVersion = V014;
 
-    fn read_mod_name(reader: &mut impl Read) -> io::Result<String> {
+    fn read_mod_name(version: impl FactorioVersion, reader: &mut impl Read) -> io::Result<String> {
         reader::read_string::<V016>(reader)
     }
 }
