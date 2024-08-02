@@ -1,7 +1,6 @@
 mod reader;
 //pub mod saves;
 pub mod saves;
-mod versions;
 
 // Mostly based on https://forums.factorio.com/viewtopic.php?f=5&t=8568&p=277892&hilit=level.dat+python#p277892
 // Function that writes the save in factorio: `Scenario::saveMap()`

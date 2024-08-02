@@ -1,13 +1,5 @@
-use std::{fs::File, io, io::Read, path::Path};
-use std::num::NonZeroU32;
-use flate2::read::ZlibDecoder;
-
-use crate::{
-    reader::{FactorioNumber, FactorioReader},
-    versions::RuntimeVersion,
-};
-use crate::reader::{read_array, read_optimized_num, read_string};
-use crate::versions::FactorioVersion;
+use std::io;
+use std::io::Read;
 
 #[repr(u8)]
 #[derive(PartialEq, Debug)]
@@ -52,6 +44,9 @@ impl From<u8> for AllowedCommands {
         }
     }
 }
+
+#[derive(PartialOrd, PartialEq)]
+pub struct FactorioVersion([u16; 4]);
 
 #[derive(PartialEq, Debug)]
 pub struct SaveHeader {
