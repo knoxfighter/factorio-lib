@@ -18,19 +18,19 @@ pub trait FactorioVersion {
         Self::PreviousVersion::read_array_length(&Default::default(), reader)
     }
 
-    fn read_quality_version(version: impl FactorioVersion, reader: &mut impl Read) -> io::Result<Option<u8>> {
-        Self::PreviousVersion::read_quality_version(version, reader)
+    fn read_quality_version(&self, version: impl FactorioVersion, reader: &mut impl Read) -> io::Result<Option<u8>> {
+        Self::PreviousVersion::read_quality_version(&Default::default(), version, reader)
     }
 
-    fn read_allow_non_admin_debug_options(version: impl FactorioVersion, reader: &mut impl Read) -> io::Result<Option<bool>> {
-        Self::PreviousVersion::read_allow_non_admin_debug_options(version, reader)
+    fn read_allow_non_admin_debug_options(&self, version: impl FactorioVersion, reader: &mut impl Read) -> io::Result<Option<bool>> {
+        Self::PreviousVersion::read_allow_non_admin_debug_options(&Default::default(), version, reader)
     }
 
-    fn read_mod_name(version: impl FactorioVersion, reader: &mut impl Read) -> io::Result<String> {
-        Self::PreviousVersion::read_mod_name(version, reader)
+    fn read_mod_name(&self, version: impl FactorioVersion, reader: &mut impl Read) -> io::Result<String> {
+        Self::PreviousVersion::read_mod_name(&Default::default(), version, reader)
     }
-    fn read_mod_crc(version: impl FactorioVersion, reader: &mut impl Read) -> io::Result<Option<u32>> {
-        Self::PreviousVersion::read_mod_crc(version, reader)
+    fn read_mod_crc(&self, version: impl FactorioVersion, reader: &mut impl Read) -> io::Result<Option<u32>> {
+        Self::PreviousVersion::read_mod_crc(&Default::default(), version, reader)
     }
 }
 
@@ -76,8 +76,8 @@ impl RuntimeVersion {
 impl FactorioVersion for RuntimeVersion {
     type PreviousVersion = Self;
     
-    fn read_quality_version(version: impl FactorioVersion, reader: &mut impl Read) -> io::Result<Option<u8>> {
-        dispatch!(self, read_quality_version, version, reader)
+    fn read_quality_version(&self, version: impl FactorioVersion, reader: &mut impl Read) -> io::Result<Option<u8>> {
+        dispatch!(self, read_quality_version, self, version, reader)
     }
 
     fn read_allow_non_admin_debug_options(
