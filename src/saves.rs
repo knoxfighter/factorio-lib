@@ -1,5 +1,8 @@
 use std::io;
-use std::io::Read;
+use std::io::{Read, Seek};
+use std::path::Path;
+use flate2::read::ZlibDecoder;
+use crate::reader::{FactorioReader, read_allow_non_admin_debug_options, read_array, read_loaded_from, read_quality_version, read_string};
 
 #[repr(u8)]
 #[derive(PartialEq, Debug)]
@@ -45,12 +48,18 @@ impl From<u8> for AllowedCommands {
     }
 }
 
-#[derive(PartialOrd, PartialEq)]
+#[derive(PartialOrd, PartialEq, Debug, Copy, Clone)]
 pub struct FactorioVersion([u16; 4]);
+
+impl From<[u16;4]> for FactorioVersion {
+    fn from(value: [u16; 4]) -> Self {
+        Self(value)
+    }
+}
 
 #[derive(PartialEq, Debug)]
 pub struct SaveHeader {
-    pub factorio_version: [u16; 4],
+    pub factorio_version: FactorioVersion,
     pub quality_version: Option<u8>,
     pub campaign_name: String, // can be ":/tutorials"
     pub level_name: String,
@@ -82,15 +91,29 @@ pub struct Mod {
 }
 
 impl FactorioReader for Mod {
-    fn read<T: FactorioVersion>(reader: &mut impl Read) -> io::Result<Self> {
+    fn read(factorio_version: &FactorioVersion, reader: &mut impl Read) -> io::Result<Self> {
+        let name = if factorio_version >= &[0, 14, 0, 0].into() {
+            read_string(factorio_version, reader, true)?
+        } else {
+            read_string(factorio_version, reader, false)?
+        };
+        
+        let version = if factorio_version >= &[0, 14, 14, 0].into() {
+            [u16::read_optimized(factorio_version, reader)?, u16::read_optimized(factorio_version, reader)?, u16::read_optimized(factorio_version, reader)?]
+        } else {
+            [u16::read(factorio_version, reader)?, u16::read(factorio_version, reader)?, u16::read(factorio_version, reader)?]
+        };
+
+        let crc = if factorio_version >= &[0, 15, 0, 91].into() {
+            Some(u32::read(factorio_version, reader)?)
+        } else {
+            None
+        };
+
         Ok(Mod {
-            name: T::read_mod_name(reader)?,
-            version: [
-                read_optimized_num::<u16>(reader)?,
-                read_optimized_num::<u16>(reader)?,
-                read_optimized_num::<u16>(reader)?,
-            ],
-            crc: T::read_mod_crc(reader)?,
+            name,
+            version,
+            crc
         })
     }
 }
@@ -126,47 +149,38 @@ impl FactorioReader for Mod {
 /// let header = get_save_header(&mut decoder).unwrap();
 /// ```
 pub fn get_save_header(reader: &mut impl Read) -> io::Result<SaveHeader> {
-    let save_version = [
-        u16::read_num(reader)?,
-        u16::read_num(reader)?,
-        u16::read_num(reader)?,
-        u16::read_num(reader)?,
-    ];
-
-    let runtime_version =
-        RuntimeVersion::parse_version(&[save_version[0], save_version[1], save_version[2]]);
+    let save_version: FactorioVersion = [
+        u16::read(&[0,0,0,0].into(), reader)?,
+        u16::read(&[0,0,0,0].into(), reader)?,
+        u16::read(&[0,0,0,0].into(), reader)?,
+        u16::read(&[0,0,0,0].into(), reader)?,
+    ].into();
 
     let res = SaveHeader {
         factorio_version: save_version,
-        quality_version: runtime_version.read_quality_version(reader)?,
-        campaign_name: read_string(reader)?,
-        level_name: read_string(reader)?,
-        base_mod_name: read_string(reader)?,
-        difficulty: u8::read_num(reader)?.into(),
-        finished: u8::read_num(reader)? != 0,
-        player_won: u8::read_num(reader)? != 0,
-        next_level: read_string(reader)?,
-        can_continue: u8::read_num(reader)? != 0,
-        finished_but_continuing: u8::read_num(reader)? != 0,
-        saving_replay: u8::read_num(reader)? != 0,
-        allow_non_admin_debug_options: runtime_version
-            .read_allow_non_admin_debug_options(reader)?,
-        loaded_from: [
-            read_optimized_num(reader)?,
-            read_optimized_num(reader)?,
-            read_optimized_num(reader)?,
-        ],
-        loaded_from_build: u16::read_num(reader)?,
-        allowed_commands: u8::read_num(reader)?.into(),
-        mods: read_array::<Mod>(reader)?,
+        quality_version: read_quality_version(&save_version, reader)?,
+        campaign_name: read_string(&save_version, reader, false)?,
+        level_name: read_string(&save_version, reader, false)?,
+        base_mod_name: read_string(&save_version, reader, false)?,
+        difficulty: u8::read(&save_version, reader)?.into(),
+        finished: u8::read(&save_version, reader)? != 0,
+        player_won: u8::read(&save_version, reader)? != 0,
+        next_level: read_string(&save_version, reader, false)?,
+        can_continue: u8::read(&save_version, reader)? != 0,
+        finished_but_continuing: u8::read(&save_version, reader)? != 0,
+        saving_replay: u8::read(&save_version, reader)? != 0,
+        allow_non_admin_debug_options: read_allow_non_admin_debug_options(&save_version, reader)?,
+        loaded_from: read_loaded_from(&save_version, reader)?,
+        loaded_from_build: u16::read(&save_version, reader)?,
+        allowed_commands: u8::read(&save_version, reader)?.into(),
+        mods: read_array::<Mod>(&save_version, reader)?,
     };
 
     Ok(res)
 }
 
-pub fn get_save_header_by_path(save_file_path: &Path) -> io::Result<SaveHeader> {
-    let file = File::open(save_file_path)?;
-    let mut archive = zip::ZipArchive::new(file)?;
+pub fn get_save_header_by_path(reader: impl Read+Seek) -> io::Result<SaveHeader> {
+    let mut archive = zip::ZipArchive::new(reader)?;
 
     let dat_info = archive
         .file_names()
@@ -194,12 +208,13 @@ pub fn get_save_header_by_path(save_file_path: &Path) -> io::Result<SaveHeader> 
 
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
     use super::*;
 
     #[test]
     fn test_1_1_14() {
         let header = SaveHeader {
-            factorio_version: [1, 1, 19, 0],
+            factorio_version: [1, 1, 19, 0].into(),
             quality_version: Some(0),
             campaign_name: "transport-belt-madness".to_string(),
             level_name: "level-01".to_string(),
@@ -235,14 +250,15 @@ mod tests {
         };
 
         let path = Path::new("test/test_1_1_14.zip");
-        let test = get_save_header_by_path(path).unwrap();
+        let file = File::open(path).unwrap();
+        let test = get_save_header_by_path(file).unwrap();
         assert_eq!(header, test);
     }
 
     #[test]
     fn test_1_1() {
         let header = SaveHeader {
-            factorio_version: [1, 1, 6, 4],
+            factorio_version: [1, 1, 6, 4].into(),
             quality_version: Some(0),
             campaign_name: "transport-belt-madness".to_string(),
             level_name: "level-01".to_string(),
@@ -278,7 +294,8 @@ mod tests {
         };
 
         let path = Path::new("test/test_1_1.zip");
-        let test = get_save_header_by_path(path).unwrap();
+        let file = File::open(path).unwrap();
+        let test = get_save_header_by_path(file).unwrap();
 
         assert_eq!(header, test);
     }
@@ -286,7 +303,7 @@ mod tests {
     #[test]
     fn test_0_18() {
         let header = SaveHeader {
-            factorio_version: [0, 18, 2, 2],
+            factorio_version: [0, 18, 2, 2].into(),
             quality_version: Some(0),
             campaign_name: "transport-belt-madness".to_string(),
             level_name: "level-01".to_string(),
@@ -322,7 +339,8 @@ mod tests {
         };
 
         let path = Path::new("test/test_0_18.zip");
-        let test = get_save_header_by_path(path).unwrap();
+        let file = File::open(path).unwrap();
+        let test = get_save_header_by_path(file).unwrap();
 
         assert_eq!(header, test);
     }
@@ -330,7 +348,7 @@ mod tests {
     #[test]
     fn test_0_17() {
         let header = SaveHeader {
-            factorio_version: [0, 17, 1, 1],
+            factorio_version: [0, 17, 1, 1].into(),
             quality_version: Some(0),
             campaign_name: "transport-belt-madness".to_string(),
             level_name: "level-01".to_string(),
@@ -361,7 +379,8 @@ mod tests {
         };
 
         let path = Path::new("test/test_0_17.zip");
-        let test = get_save_header_by_path(path).unwrap();
+        let file = File::open(path).unwrap();
+        let test = get_save_header_by_path(file).unwrap();
 
         assert_eq!(header, test);
     }
@@ -369,7 +388,7 @@ mod tests {
     #[test]
     fn test_0_16() {
         let header = SaveHeader {
-            factorio_version: [0, 16, 51, 0],
+            factorio_version: [0, 16, 51, 0].into(),
             quality_version: None,
             campaign_name: "transport-belt-madness".to_string(),
             level_name: "level-01".to_string(),
@@ -400,7 +419,8 @@ mod tests {
         };
 
         let path = Path::new("test/test_0_16.zip");
-        let test = get_save_header_by_path(path).unwrap();
+        let file = File::open(path).unwrap();
+        let test = get_save_header_by_path(file).unwrap();
 
         assert_eq!(header, test);
     }
@@ -408,7 +428,7 @@ mod tests {
     #[test]
     fn test_0_15() {
         let header = SaveHeader {
-            factorio_version: [0, 15, 40, 0],
+            factorio_version: [0, 15, 40, 0].into(),
             quality_version: None,
             campaign_name: "transport-belt-madness".to_string(),
             level_name: "level-01".to_string(),
@@ -439,7 +459,8 @@ mod tests {
         };
 
         let path = Path::new("test/test_0_15.zip");
-        let test = get_save_header_by_path(path).unwrap();
+        let file = File::open(path).unwrap();
+        let test = get_save_header_by_path(file).unwrap();
 
         assert_eq!(header, test);
     }
@@ -447,7 +468,7 @@ mod tests {
     #[test]
     fn test_0_14() {
         let header = SaveHeader {
-            factorio_version: [0, 14, 23, 0],
+            factorio_version: [0, 14, 23, 0].into(),
             quality_version: None,
             campaign_name: "transport-belt-madness".to_string(),
             level_name: "level-01".to_string(),
@@ -478,7 +499,8 @@ mod tests {
         };
 
         let path = Path::new("test/test_0_14.zip");
-        let test = get_save_header_by_path(path).unwrap();
+        let file = File::open(path).unwrap();
+        let test = get_save_header_by_path(file).unwrap();
 
         assert_eq!(header, test);
     }
@@ -486,7 +508,7 @@ mod tests {
     #[test]
     fn test_0_13() {
         let header = SaveHeader {
-            factorio_version: [0, 13, 20, 0],
+            factorio_version: [0, 13, 20, 0].into(),
             quality_version: None,
             campaign_name: "transport-belt-madness".to_string(),
             level_name: "level-01".to_string(),
@@ -517,7 +539,8 @@ mod tests {
         };
 
         let path = Path::new("test/test_0_13.zip");
-        let test = get_save_header_by_path(path).unwrap();
+        let file = File::open(path).unwrap();
+        let test = get_save_header_by_path(file).unwrap();
 
         assert_eq!(header, test);
     }
