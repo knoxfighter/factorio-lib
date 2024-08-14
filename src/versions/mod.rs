@@ -1,13 +1,5 @@
 use std::io::{self, Read};
 
-use crate::versions::{
-    v013::V013,
-    v014::{V014, V01414},
-    v015::V015,
-    v016::V016,
-    v017::V017,
-};
-
 pub mod v013;
 pub mod v014;
 pub mod v015;
@@ -18,7 +10,7 @@ pub trait FactorioVersion {
     type PreviousVersion: FactorioVersion + Default;
 
     fn read_array_length(&self, reader: &mut impl Read) -> io::Result<u32> {
-        Self::PreviousVersion::read_array_length(&Default::default(), reader)
+        Self::PreviousVersion::read_array_length(self as &_, reader)
     }
 
     fn read_quality_version(&self, reader: &mut impl Read) -> io::Result<Option<u8>> {
