@@ -1,8 +1,14 @@
-use std::io;
-use std::io::{Read, Seek};
-use std::path::Path;
+use std::{
+    io,
+    io::{Read, Seek},
+};
+
 use flate2::read::ZlibDecoder;
-use crate::reader::{FactorioReader, read_allow_non_admin_debug_options, read_array, read_loaded_from, read_quality_version, read_string};
+
+use crate::reader::{
+    read_allow_non_admin_debug_options, read_array, read_loaded_from, read_quality_version,
+    read_string, FactorioReader,
+};
 
 #[repr(u8)]
 #[derive(PartialEq, Debug)]
@@ -51,7 +57,7 @@ impl From<u8> for AllowedCommands {
 #[derive(PartialOrd, PartialEq, Debug, Copy, Clone)]
 pub struct FactorioVersion([u16; 4]);
 
-impl From<[u16;4]> for FactorioVersion {
+impl From<[u16; 4]> for FactorioVersion {
     fn from(value: [u16; 4]) -> Self {
         Self(value)
     }
@@ -97,11 +103,19 @@ impl FactorioReader for Mod {
         } else {
             read_string(factorio_version, reader, false)?
         };
-        
+
         let version = if factorio_version >= &[0, 14, 14, 0].into() {
-            [u16::read_optimized(factorio_version, reader)?, u16::read_optimized(factorio_version, reader)?, u16::read_optimized(factorio_version, reader)?]
+            [
+                u16::read_optimized(factorio_version, reader)?,
+                u16::read_optimized(factorio_version, reader)?,
+                u16::read_optimized(factorio_version, reader)?,
+            ]
         } else {
-            [u16::read(factorio_version, reader)?, u16::read(factorio_version, reader)?, u16::read(factorio_version, reader)?]
+            [
+                u16::read(factorio_version, reader)?,
+                u16::read(factorio_version, reader)?,
+                u16::read(factorio_version, reader)?,
+            ]
         };
 
         let crc = if factorio_version >= &[0, 15, 0, 91].into() {
@@ -110,11 +124,7 @@ impl FactorioReader for Mod {
             None
         };
 
-        Ok(Mod {
-            name,
-            version,
-            crc
-        })
+        Ok(Mod { name, version, crc })
     }
 }
 
@@ -150,11 +160,12 @@ impl FactorioReader for Mod {
 /// ```
 pub fn get_save_header(reader: &mut impl Read) -> io::Result<SaveHeader> {
     let save_version: FactorioVersion = [
-        u16::read(&[0,0,0,0].into(), reader)?,
-        u16::read(&[0,0,0,0].into(), reader)?,
-        u16::read(&[0,0,0,0].into(), reader)?,
-        u16::read(&[0,0,0,0].into(), reader)?,
-    ].into();
+        u16::read(&[0, 0, 0, 0].into(), reader)?,
+        u16::read(&[0, 0, 0, 0].into(), reader)?,
+        u16::read(&[0, 0, 0, 0].into(), reader)?,
+        u16::read(&[0, 0, 0, 0].into(), reader)?,
+    ]
+    .into();
 
     let res = SaveHeader {
         factorio_version: save_version,
@@ -179,7 +190,7 @@ pub fn get_save_header(reader: &mut impl Read) -> io::Result<SaveHeader> {
     Ok(res)
 }
 
-pub fn get_save_header_by_path(reader: impl Read+Seek) -> io::Result<SaveHeader> {
+pub fn get_save_header_by_path(reader: impl Read + Seek) -> io::Result<SaveHeader> {
     let mut archive = zip::ZipArchive::new(reader)?;
 
     let dat_info = archive
@@ -208,7 +219,8 @@ pub fn get_save_header_by_path(reader: impl Read+Seek) -> io::Result<SaveHeader>
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
+    use std::{fs::File, path::Path};
+
     use super::*;
 
     #[test]

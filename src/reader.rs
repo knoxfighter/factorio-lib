@@ -1,6 +1,6 @@
+use std::{io, io::Read};
+
 use crate::saves::FactorioVersion;
-use std::io;
-use std::io::Read;
 
 pub(crate) trait FactorioReader: Sized {
     fn read(version: &FactorioVersion, reader: &mut impl Read) -> io::Result<Self>;
@@ -91,7 +91,10 @@ pub(crate) fn read_loaded_from(
     }
 }
 
-pub(crate) fn read_array<T: FactorioReader>(version: &FactorioVersion, reader: &mut impl Read) -> io::Result<Vec<T>> {
+pub(crate) fn read_array<T: FactorioReader>(
+    version: &FactorioVersion,
+    reader: &mut impl Read,
+) -> io::Result<Vec<T>> {
     let length = if version >= &[0, 16, 0, 0].into() {
         u32::read_optimized(version, reader)?
     } else {
