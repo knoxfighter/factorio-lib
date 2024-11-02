@@ -109,3 +109,29 @@ pub(crate) fn read_array<T: FactorioReader>(
 
     Ok(res)
 }
+
+pub(crate) fn read_build_version(
+    version: &FactorioVersion,
+    reader: &mut impl Read,
+) -> io::Result<u32> {
+    Ok(
+        if version >= &FactorioVersion::from([2, 0, 0, 0]) {
+            u32::read(version, reader)?
+        } else {
+            u16::read(&version, reader)? as u32
+        }
+    )
+}
+
+pub(crate) fn read_large_blueprint_size(
+    version: &FactorioVersion,
+    reader: &mut impl Read,
+) -> io::Result<Option<u32>> {
+    Ok(
+        if version >= &[2, 0, 0, 0].into() {
+            Some(u32::read(version, reader)?)
+        } else {
+            None
+        }
+    )
+}

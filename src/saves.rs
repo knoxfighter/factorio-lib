@@ -5,10 +5,7 @@ use std::{
 
 use flate2::read::ZlibDecoder;
 
-use crate::reader::{
-    read_allow_non_admin_debug_options, read_array, read_loaded_from, read_quality_version,
-    read_string, FactorioReader,
-};
+use crate::reader::{read_allow_non_admin_debug_options, read_array, read_build_version, read_large_blueprint_size, read_loaded_from, read_quality_version, read_string, FactorioReader};
 
 #[repr(u8)]
 #[derive(PartialEq, Debug)]
@@ -44,9 +41,9 @@ pub enum AllowedCommands {
 impl From<u8> for AllowedCommands {
     fn from(value: u8) -> Self {
         match value {
-            0 => AllowedCommands::True,
-            1 => AllowedCommands::False,
-            2 => AllowedCommands::AdminsOnly,
+            1 => AllowedCommands::True,
+            2 => AllowedCommands::False,
+            3 => AllowedCommands::AdminsOnly,
             _ => {
                 panic!("invalid value: {value}")
             }
@@ -79,8 +76,9 @@ pub struct SaveHeader {
     pub saving_replay: bool,
     pub allow_non_admin_debug_options: Option<bool>,
     pub loaded_from: [u16; 3], // called "application-version" in factorio
-    pub loaded_from_build: u16,
+    pub loaded_from_build: u32,
     pub allowed_commands: AllowedCommands,
+    pub lange_blueprint_size: Option<u32>,
     pub mods: Vec<Mod>, /* called "active-mods" in factorio */
 
                         /* the following is untracked and just a first glance in 1.1 factorio
@@ -182,8 +180,9 @@ pub fn get_save_header(reader: &mut impl Read) -> io::Result<SaveHeader> {
         saving_replay: u8::read(&save_version, reader)? != 0,
         allow_non_admin_debug_options: read_allow_non_admin_debug_options(&save_version, reader)?,
         loaded_from: read_loaded_from(&save_version, reader)?,
-        loaded_from_build: u16::read(&save_version, reader)?,
+        loaded_from_build: read_build_version(&save_version, reader)?,
         allowed_commands: u8::read(&save_version, reader)?.into(),
+        lange_blueprint_size: read_large_blueprint_size(&save_version, reader)?,
         mods: read_array::<Mod>(&save_version, reader)?,
     };
 
@@ -224,6 +223,121 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_2_0_13_ext() {
+        let header = SaveHeader {
+            factorio_version: [2, 0, 13, 1].into(),
+            quality_version: Some(0),
+            campaign_name: "transport-belt-madness".to_string(),
+            level_name: "level-01".to_string(),
+            base_mod_name: "base".to_string(),
+            difficulty: Difficulty::Normal,
+            finished: false,
+            player_won: false,
+            next_level: "".to_string(),
+            can_continue: false,
+            finished_but_continuing: false,
+            saving_replay: false,
+            allow_non_admin_debug_options: Some(true),
+            loaded_from: [2, 0, 13],
+            loaded_from_build: 79912,
+            allowed_commands: AllowedCommands::True,
+            lange_blueprint_size: Some(10485760),
+            mods: vec![
+                Mod {
+                    name: "base".to_string(),
+                    version: [2, 0, 13],
+                    crc: Some(2691306720),
+                },
+                Mod {
+                    name: "AutoDeconstruct".to_string(),
+                    version: [1, 0, 2],
+                    crc: Some(3603960023),
+                },
+                Mod {
+                    name: "elevated-rails".to_string(),
+                    version: [2, 0, 13],
+                    crc: Some(2288905443),
+                },
+                Mod {
+                    name: "flib".to_string(),
+                    version: [0, 15, 0],
+                    crc: Some(2235140407),
+                },
+                Mod {
+                    name: "quality".to_string(),
+                    version: [2, 0, 13],
+                    crc: Some(4264147466),
+                },
+                Mod {
+                    name: "RateCalculator".to_string(),
+                    version: [3, 3, 2],
+                    crc: Some(2191928673),
+                },
+                Mod {
+                    name: "space-age".to_string(),
+                    version: [2, 0, 13],
+                    crc: Some(542481865),
+                },
+            ],
+        };
+
+        let path = Path::new("test/test_2_0_13_ext.zip");
+        let file = File::open(path).unwrap();
+        let test = get_save_header_by_path(file).unwrap();
+        assert_eq!(header, test);
+    }
+    
+    #[test]
+    fn test_2_0_13() {
+        let header = SaveHeader {
+            factorio_version: [2, 0, 13, 1].into(),
+            quality_version: Some(0),
+            campaign_name: "transport-belt-madness".to_string(),
+            level_name: "level-01".to_string(),
+            base_mod_name: "base".to_string(),
+            difficulty: Difficulty::Normal,
+            finished: false,
+            player_won: false,
+            next_level: "".to_string(),
+            can_continue: false,
+            finished_but_continuing: false,
+            saving_replay: false,
+            allow_non_admin_debug_options: Some(true),
+            loaded_from: [2, 0, 13],
+            loaded_from_build: 79912,
+            allowed_commands: AllowedCommands::True,
+            lange_blueprint_size: Some(10485760),
+            mods: vec![
+                Mod {
+                    name: "base".to_string(),
+                    version: [2, 0, 13],
+                    crc: Some(2691306720),
+                },
+                Mod {
+                    name: "AutoDeconstruct".to_string(),
+                    version: [1, 0, 2],
+                    crc: Some(3603960023),
+                },
+                Mod {
+                    name: "flib".to_string(),
+                    version: [0, 15, 0],
+                    crc: Some(2235140407),
+                },
+                Mod {
+                    name: "RateCalculator".to_string(),
+                    version: [3, 3, 2],
+                    crc: Some(2191928673),
+                },
+            ],
+        };
+
+        let path = Path::new("test/test_2_0_13.zip");
+        let file = File::open(path).unwrap();
+        let test = get_save_header_by_path(file).unwrap();
+        assert_eq!(header, test);
+    }
+
+    #[test]
     fn test_1_1_14() {
         let header = SaveHeader {
             factorio_version: [1, 1, 19, 0].into(),
@@ -241,7 +355,8 @@ mod tests {
             allow_non_admin_debug_options: Some(true),
             loaded_from: [1, 1, 19],
             loaded_from_build: 57957,
-            allowed_commands: AllowedCommands::False,
+            allowed_commands: AllowedCommands::True,
+            lange_blueprint_size: None,
             mods: vec![
                 Mod {
                     name: "base".to_string(),
@@ -285,7 +400,8 @@ mod tests {
             allow_non_admin_debug_options: Some(true),
             loaded_from: [1, 1, 6],
             loaded_from_build: 57355,
-            allowed_commands: AllowedCommands::False,
+            allowed_commands: AllowedCommands::True,
+            lange_blueprint_size: None,
             mods: vec![
                 Mod {
                     name: "base".to_string(),
@@ -330,7 +446,8 @@ mod tests {
             allow_non_admin_debug_options: Some(true),
             loaded_from: [0, 18, 2],
             loaded_from_build: 49204,
-            allowed_commands: AllowedCommands::False,
+            allowed_commands: AllowedCommands::True,
+            lange_blueprint_size: None,
             mods: vec![
                 Mod {
                     name: "base".to_string(),
@@ -375,7 +492,8 @@ mod tests {
             allow_non_admin_debug_options: Some(true),
             loaded_from: [0, 17, 1],
             loaded_from_build: 43001,
-            allowed_commands: AllowedCommands::False,
+            allowed_commands: AllowedCommands::True,
+            lange_blueprint_size: None,
             mods: vec![
                 Mod {
                     name: "Warehousing".to_string(),
@@ -415,7 +533,8 @@ mod tests {
             allow_non_admin_debug_options: Some(true),
             loaded_from: [0, 16, 51],
             loaded_from_build: 36654,
-            allowed_commands: AllowedCommands::False,
+            allowed_commands: AllowedCommands::True,
+            lange_blueprint_size: None,
             mods: vec![
                 Mod {
                     name: "Warehousing".to_string(),
@@ -455,7 +574,8 @@ mod tests {
             allow_non_admin_debug_options: None,
             loaded_from: [0, 15, 40],
             loaded_from_build: 30950,
-            allowed_commands: AllowedCommands::False,
+            allowed_commands: AllowedCommands::True,
+            lange_blueprint_size: None,
             mods: vec![
                 Mod {
                     name: "Warehousing".to_string(),
@@ -495,7 +615,8 @@ mod tests {
             allow_non_admin_debug_options: None,
             loaded_from: [0, 14, 23],
             loaded_from_build: 25374,
-            allowed_commands: AllowedCommands::False,
+            allowed_commands: AllowedCommands::True,
+            lange_blueprint_size: None,
             mods: vec![
                 Mod {
                     name: "Warehousing".to_string(),
@@ -535,7 +656,8 @@ mod tests {
             allow_non_admin_debug_options: None,
             loaded_from: [0, 13, 20],
             loaded_from_build: 24011,
-            allowed_commands: AllowedCommands::False,
+            allowed_commands: AllowedCommands::True,
+            lange_blueprint_size: None,
             mods: vec![
                 Mod {
                     name: "Extra-Virtual-Signals".to_string(),
